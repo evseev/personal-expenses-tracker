@@ -1,0 +1,18 @@
+{
+  "$schema": "./node_modules/fallow/schema.json",
+  "failOnParseError": true,
+  "boundaries": {
+    "zones": [
+      { "name": "app", "patterns": ["src/app/**"] },
+      { "name": "ui", "patterns": ["src/components/**"] },
+      { "name": "storage", "patterns": ["src/storage/**"] },
+      { "name": "domain", "patterns": ["src/domain/**"] }
+    ],
+    "rules": [
+      { "from": "app", "allow": ["ui", "domain"] },
+      { "from": "ui", "allow": ["domain", "storage"] },
+      { "from": "storage", "allow": ["domain"] },
+      { "from": "domain", "allow": [] }
+    ]
+  }
+}
