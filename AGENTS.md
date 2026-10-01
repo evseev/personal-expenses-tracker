@@ -12,6 +12,7 @@ Read `docs/product-specs/expenses-v1.md` before changing product behavior. Read 
 6. Do not weaken tests, acceptance criteria, or gate scripts to turn a failure green.
 7. Use installed Vercel React Best Practices for relevant React decisions and ASD-STE100 for English agent instructions. Record applied rules in `docs/evidence/`.
 8. Use `npm run fallow` for codebase analysis. Do not auto-fix fallow findings without inspection.
+9. A modal form must keep keyboard focus inside it. Escape closes it. Closing it returns focus to the button that opened it. Add a browser regression test for this behavior.
 
 ## Knowledge map
 
