@@ -24,6 +24,79 @@ test("create, edit, persist, and delete an expense", async ({ page }) => {
   await expect(page.getByTestId("monthly-total")).toHaveText("$0.00");
 });
 
+test("contains modal focus in both Tab directions", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Add expense" }).click();
+  const dialog = page.getByRole("dialog", { name: "Add an expense" });
+  const first = dialog.getByRole("button", { name: "Close form" });
+  const last = dialog.getByRole("button", { name: "Save expense" });
+  await expect(dialog.getByLabel("Amount in USD")).toBeFocused();
+
+  await last.focus();
+  await page.keyboard.press("Tab");
+  await expect(first).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(last).toBeFocused();
+
+  for (const key of ["Tab", "Shift+Tab"]) {
+    for (let index = 0; index < 16; index += 1) {
+      await page.keyboard.press(key);
+      await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+    }
+  }
+});
+
+test("Escape closes the modal and restores the Add and Edit triggers", async ({ page }) => {
+  await page.goto("/");
+  const add = page.getByRole("button", { name: "Add expense" });
+  await add.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByLabel("Amount in USD")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toBeHidden();
+  await expect(add).toBeFocused();
+
+  await page.keyboard.press("Enter");
+  await page.getByLabel("Amount in USD").fill("4.25");
+  await page.getByLabel("Note").fill("Focus test");
+  await page.getByRole("button", { name: "Save expense" }).click();
+  await expect(page.getByRole("dialog")).toBeHidden();
+  await expect(add).toBeFocused();
+
+  const edit = page.getByRole("button", { name: "Edit Focus test", exact: true });
+  await edit.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByLabel("Amount in USD")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toBeHidden();
+  await expect(edit).toBeFocused();
+
+  for (const name of ["Cancel", "Close form", "Save changes"]) {
+    await page.keyboard.press("Enter");
+    await page.getByRole("dialog").getByRole("button", { name, exact: true }).click();
+    await expect(page.getByRole("dialog")).toBeHidden();
+    await expect(edit).toBeFocused();
+  }
+});
+
+test("restores focus to Add when an edited row leaves the category filter", async ({ page }) => {
+  await page.goto("/");
+  const add = page.getByRole("button", { name: "Add expense" });
+  await add.click();
+  await page.getByLabel("Amount in USD").fill("4.25");
+  await page.getByLabel("Note").fill("Filtered expense");
+  await page.getByRole("button", { name: "Save expense" }).click();
+
+  await page.getByLabel("Filter category").selectOption("Food");
+  await page.getByRole("button", { name: "Edit Filtered expense" }).click();
+  await page.getByRole("dialog").getByRole("combobox", { name: "Category" }).selectOption("Transport");
+  await page.getByRole("button", { name: "Save changes" }).click();
+
+  await expect(page.getByRole("dialog")).toBeHidden();
+  await expect(page.getByRole("button", { name: "Edit Filtered expense" })).toHaveCount(0);
+  await expect(add).toBeFocused();
+});
+
 test("stays usable offline after the shell is ready", async ({ page, context, browserName }) => {
   test.skip(browserName !== "chromium", "Offline acceptance uses desktop Chromium.");
   await page.goto("/");

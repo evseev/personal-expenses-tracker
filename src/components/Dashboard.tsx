@@ -75,6 +75,27 @@ function ExpenseForm({ expense, busy, onCancel, onSave }: ExpenseFormProps) {
 
   useEffect(() => amountRef.current?.focus(), []);
 
+  function handleDialogKeyDown(event: React.KeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      onCancel();
+      return;
+    }
+    if (event.key !== "Tab") return;
+
+    const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])',
+    ));
+    if (focusable.length === 0) return;
+
+    const eventTarget = event.target instanceof HTMLElement ? event.target : null;
+    const currentIndex = focusable.indexOf(eventTarget ?? document.activeElement as HTMLElement);
+    if (currentIndex === -1) return;
+    event.preventDefault();
+    const nextIndex = (currentIndex + (event.shiftKey ? -1 : 1) + focusable.length) % focusable.length;
+    focusable[nextIndex].focus();
+  }
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError("");
@@ -90,7 +111,7 @@ function ExpenseForm({ expense, busy, onCancel, onSave }: ExpenseFormProps) {
 
   return (
     <div className={styles.overlay} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel(); }}>
-      <section className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="form-title">
+      <section className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="form-title" onKeyDown={handleDialogKeyDown}>
         <div className={styles.dialogTop}>
           <div>
             <p className={styles.eyebrow}>EXPENSE DETAILS</p>
@@ -125,6 +146,8 @@ export default function Dashboard() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const openerRef = useRef<HTMLButtonElement | null>(null);
+  const addButtonRef = useRef<HTMLButtonElement>(null);
   const { ready, connected } = useOfflineReady();
 
   useEffect(() => {
@@ -154,7 +177,7 @@ export default function Dashboard() {
       });
       await refresh();
       setMonth(input.date.slice(0, 7));
-      setEditing(null);
+      closeForm();
       setMessage(existing ? "Expense updated." : "Expense saved.");
     } catch (cause) {
       setError("Could not save the expense. Your existing data is unchanged.");
@@ -162,6 +185,20 @@ export default function Dashboard() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function closeForm() {
+    const opener = openerRef.current;
+    setEditing(null);
+    requestAnimationFrame(() => {
+      (opener?.isConnected && !opener.disabled ? opener : addButtonRef.current)?.focus();
+      openerRef.current = null;
+    });
+  }
+
+  function openForm(value: Expense | "new", opener: HTMLButtonElement) {
+    openerRef.current = opener;
+    setEditing(value);
   }
 
   async function remove(expense: Expense) {
@@ -235,7 +272,7 @@ export default function Dashboard() {
       <main className={styles.main}>
         <section className={styles.intro}>
           <div><p className={styles.eyebrow}>PERSONAL EXPENSES / USD</p><h1>Your money, <span>clearly.</span></h1><p className={styles.subtitle}>A quiet place to see where it goes. Just your spending, all in one view.</p></div>
-          <button className={styles.primaryButton} onClick={() => setEditing("new")}>＋ <span>Add expense</span></button>
+          <button ref={addButtonRef} className={styles.primaryButton} onClick={(event) => openForm("new", event.currentTarget)}>＋ <span>Add expense</span></button>
         </section>
 
         {error ? <p role="alert" className={styles.errorBanner}>{error}</p> : null}
@@ -256,13 +293,13 @@ export default function Dashboard() {
 
         <section className={styles.history} aria-label="Expense history">
           <div className={styles.sectionHead}><div><p className={styles.eyebrow}>THE DETAILS</p><h2>Activity</h2></div><label className={styles.filterLabel}>Filter category<select aria-label="Filter category" value={filter} onChange={(event) => setFilter(event.target.value as Category | "All")}><option>All</option>{CATEGORIES.map((category) => <option key={category}>{category}</option>)}</select></label></div>
-          {!loaded ? <div className={styles.listEmpty}>Loading expenses…</div> : visibleExpenses.length ? <ul className={styles.expenseList}>{visibleExpenses.map((expense) => <li className={styles.expenseRow} key={expense.id}><div className={styles.expenseIcon} style={{ color: categoryColors[expense.category] }} aria-hidden="true">{expense.category[0]}</div><div className={styles.expenseText}><strong>{expense.note || expense.category}</strong><span>{expense.category} <span aria-hidden="true">·</span> {new Date(`${expense.date}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></div><strong className={styles.expenseAmount}>−{formatUsd(expense.cents)}</strong><div className={styles.rowActions}><button aria-label={`Edit ${expense.note || expense.category}`} title="Edit" onClick={() => setEditing(expense)}>Edit</button><button aria-label={`Delete ${expense.note || expense.category}`} title="Delete" onClick={() => void remove(expense)}>Delete</button></div></li>)}</ul> : <div className={styles.listEmpty}><div className={styles.emptyGlyph} aria-hidden="true">＋</div><h3>Nothing here yet</h3><p>Add your first expense to start seeing the full picture.</p>{expenses.length === 0 ? <button className={styles.textButton} onClick={() => void loadDemo()}>Or explore with sample expenses →</button> : null}</div>}
+          {!loaded ? <div className={styles.listEmpty}>Loading expenses…</div> : visibleExpenses.length ? <ul className={styles.expenseList}>{visibleExpenses.map((expense) => <li className={styles.expenseRow} key={expense.id}><div className={styles.expenseIcon} style={{ color: categoryColors[expense.category] }} aria-hidden="true">{expense.category[0]}</div><div className={styles.expenseText}><strong>{expense.note || expense.category}</strong><span>{expense.category} <span aria-hidden="true">·</span> {new Date(`${expense.date}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></div><strong className={styles.expenseAmount}>−{formatUsd(expense.cents)}</strong><div className={styles.rowActions}><button aria-label={`Edit ${expense.note || expense.category}`} title="Edit" onClick={(event) => openForm(expense, event.currentTarget)}>Edit</button><button aria-label={`Delete ${expense.note || expense.category}`} title="Delete" onClick={() => void remove(expense)}>Delete</button></div></li>)}</ul> : <div className={styles.listEmpty}><div className={styles.emptyGlyph} aria-hidden="true">＋</div><h3>Nothing here yet</h3><p>Add your first expense to start seeing the full picture.</p>{expenses.length === 0 ? <button className={styles.textButton} onClick={() => void loadDemo()}>Or explore with sample expenses →</button> : null}</div>}
         </section>
 
         <section className={styles.dataSection} aria-label="Data and backup"><div><p className={styles.eyebrow}>YOUR DATA</p><h2>Data &amp; backup</h2><p>Your expenses stay in this browser. Clearing browser data deletes them. Download a backup to keep a copy.</p></div><div className={styles.dataActions}><button className={styles.secondaryButton} onClick={() => void exportData()}>Download JSON</button><label className={styles.uploadButton}>Import JSON backup<input aria-label="Import JSON backup" type="file" accept=".json,application/json" onChange={(event) => { void importData(event.target.files?.[0]); event.target.value = ""; }} /></label></div></section>
       </main>
       <footer className={styles.footer}><span>current. © 2026</span><span>Made for the everyday.</span></footer>
-      {editing ? <ExpenseForm key={editing === "new" ? "new" : editing.id} expense={editing === "new" ? null : editing} busy={busy} onCancel={() => setEditing(null)} onSave={save} /> : null}
+      {editing ? <ExpenseForm key={editing === "new" ? "new" : editing.id} expense={editing === "new" ? null : editing} busy={busy} onCancel={closeForm} onSave={save} /> : null}
     </div>
   );
 }

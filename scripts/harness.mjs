@@ -108,7 +108,9 @@ function checkerPrompt(task, digest, reports) {
     "You are the independent checker. Read AGENTS.md, the accepted spec, and the task.",
     "Do not edit files. Inspect the current git diff and product code.",
     "Review correctness, acceptance, accessibility, security, and the Vercel React skill rules that apply.",
-    "Return PASS only if the evidence proves the task. Report actionable findings otherwise.",
+    "Return PASS only if the evidence proves the task and findings is an empty array.",
+    "Put non-blocking observations, including existing fallow quality debt, in summary. Put only unresolved actionable defects in findings and return FAIL for them.",
+    "Use the supplied fresh check logs. Do not rerun write-producing checks in your read-only sandbox.",
     `Task: ${task}`,
     `Current repository digest: ${digest}`,
     `Fresh checks: ${JSON.stringify(reports.map(({ name, exitCode, tail }) => ({ name, exitCode, tail: tail.slice(-500) })))}`,
@@ -118,18 +120,21 @@ function checkerPrompt(task, digest, reports) {
 
 async function completeTask(state, file) {
   const task = readFileSync(join(tasksDir, file), "utf8");
+  const reviewOnly = process.argv.includes(`--review-only=${file}`);
   let repairs = 0;
   let feedback = "";
   for (;;) {
     if (!budgetRemaining(state).allowed) throw new Error("Autonomous run budget exhausted.");
     const attempt = repairs + 1;
     const label = `${basename(file, ".md")}-${String(state.calls + 1).padStart(2, "0")}`;
-    const escalated = repairs > 2;
-    const model = escalated ? "gpt-6-astra" : "gpt-5.6-luna";
-    const effort = escalated ? "high" : "medium";
-    if (escalated) { state.escalations += 1; save(state); }
-    const maker = await agent(state, "maker", `Read AGENTS.md and the task. Implement and test it. Do not weaken gates.\nTask:\n${task}\nFeedback:\n${feedback}`, model, effort, label);
-    if (maker.exitCode !== 0) throw new Error(`Maker failed. See ${maker.logPath}`);
+    if (!reviewOnly) {
+      const escalated = repairs > 2;
+      const model = escalated ? "gpt-6-astra" : "gpt-5.6-luna";
+      const effort = escalated ? "high" : "medium";
+      if (escalated) { state.escalations += 1; save(state); }
+      const maker = await agent(state, "maker", `Read AGENTS.md and the task. Implement and test it. Do not weaken gates.\nTask:\n${task}\nFeedback:\n${feedback}`, model, effort, label);
+      if (maker.exitCode !== 0) throw new Error(`Maker failed. See ${maker.logPath}`);
+    }
     const reports = await checks(state, label);
     const digest = digestRepo();
     let checker = null;
@@ -152,6 +157,7 @@ async function completeTask(state, file) {
       return;
     }
     feedback = reports.find((report) => report.exitCode !== 0)?.tail ?? JSON.stringify(checker?.findings ?? ["Missing fresh check evidence"]);
+    if (reviewOnly) throw new Error(`Review-only task ${file} did not earn PASS. ${feedback.slice(-350)}`);
     const next = nextAttempt({ repairs, escalations: state.escalations });
     record(state, { kind: "TASK_NOT_EARNED", task: file, attempt, next, feedback: feedback.slice(-1000) });
     if (next === "stop") throw new Error(`Task ${file} did not earn PASS. ${feedback.slice(-350)}`);
@@ -168,8 +174,17 @@ async function main() {
   const unlock = acquireLock();
   try {
     const state = load();
+    state.status = "RUNNING";
+    delete state.blocker;
+    record(state, { kind: "RESUME", reviewOnly: process.argv.find((arg) => arg.startsWith("--review-only=")) ?? null });
     const files = readdirSync(tasksDir).filter((file) => file.endsWith(".md")).sort();
     for (const file of files) if (!state.completed.includes(file)) await completeTask(state, file);
+    if (process.argv.includes("--skip-final-audit")) {
+      state.status = "AWAITING_RELEASE";
+      save(state);
+      console.log("TASKS COMPLETE: release evidence is still required before final audit.");
+      return;
+    }
     if (!state.finalAudit) {
       const digest = digestRepo();
       const result = await agent(state, "final-checker", `Read AGENTS.md and docs/product-specs/expenses-v1.md. Review the completed product and evidence without editing. Return JSON PASS only if all acceptance criteria are supported. Digest: ${digest}`, "gpt-6-astra", "high", "final-audit", true);

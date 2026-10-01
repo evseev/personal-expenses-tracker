@@ -1,3 +1,3 @@
 # Technical debt
 
-No known items at specification baseline. Record concrete gaps with impact and a follow-up check; do not add speculative work.
+Fallow reports seven complexity hotspots in `scripts/harness.mjs` and `src/components/Dashboard.tsx`. The structural checks for unused code, cycles, dependencies, and module boundaries pass. The current acceptance flows have unit and browser coverage, so these hotspots are review debt rather than an automatic release blocker. A later refactor can split the dashboard and runner without changing behavior; rerun `npm run verify` and compare the Fallow JSON report afterward.

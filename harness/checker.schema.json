@@ -3,10 +3,10 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "status": { "type": "string", "enum": ["PASS", "FAIL", "BLOCKED"] },
+    "status": { "type": "string", "enum": ["PASS", "FAIL", "BLOCKED"], "description": "PASS requires findings to be empty." },
     "digest": { "type": "string" },
-    "findings": { "type": "array", "items": { "type": "string" } },
-    "summary": { "type": "string" }
+    "findings": { "type": "array", "items": { "type": "string" }, "description": "Only unresolved actionable defects. Use [] for PASS." },
+    "summary": { "type": "string", "description": "Conclusion and non-blocking observations, including known quality debt." }
   },
   "required": ["status", "digest", "findings", "summary"]
 }
