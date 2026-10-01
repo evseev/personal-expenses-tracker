@@ -28,7 +28,9 @@ export class IndexedDbExpenseRepository implements ExpenseRepository {
   async put(expense: Expense): Promise<void> {
     const database = await this.open();
     try {
-      await database.put(STORE, expense);
+      const transaction = database.transaction(STORE, "readwrite");
+      await transaction.store.put(expense);
+      await transaction.done;
     } finally {
       database.close();
     }
@@ -37,7 +39,9 @@ export class IndexedDbExpenseRepository implements ExpenseRepository {
   async remove(id: string): Promise<void> {
     const database = await this.open();
     try {
-      await database.delete(STORE, id);
+      const transaction = database.transaction(STORE, "readwrite");
+      await transaction.store.delete(id);
+      await transaction.done;
     } finally {
       database.close();
     }
