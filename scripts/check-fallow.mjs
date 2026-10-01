@@ -2,6 +2,12 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { evaluateFallow } from "./fallow-policy.mjs";
 
+const typegen = spawnSync("node_modules/.bin/next", ["typegen"], { encoding: "utf8" });
+if (typegen.status !== 0) {
+  console.error(`Next.js route type generation failed: ${typegen.stderr || typegen.stdout}`);
+  process.exit(1);
+}
+
 function runFallow(args) {
   const result = spawnSync("node_modules/.bin/fallow", [...args, "--format", "json", "--quiet"], { encoding: "utf8", maxBuffer: 8_000_000 });
   try {
