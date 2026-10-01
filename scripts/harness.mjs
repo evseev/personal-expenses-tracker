@@ -81,7 +81,7 @@ async function agent(state, role, prompt, model, effort, label, readOnly = false
   state.calls += 1;
   record(state, { kind: "AGENT_START", role, model, label, call: state.calls });
   const outputFile = join(runDir, `${label}-answer.json`);
-  const argv = [process.env.CAPSTONE_CODEX_BIN || "codex", ...buildAgentArgs({ root, model, effort, readOnly })];
+  const argv = [process.env.CAPSTONE_CODEX_BIN || resolve(root, "node_modules/.bin/codex"), ...buildAgentArgs({ root, model, effort, readOnly })];
   if (readOnly) argv.push("--output-schema", schema);
   argv.push("--json", "-o", outputFile, prompt);
   const result = await run(argv, `${label}.jsonl`, 30 * 60_000);
@@ -125,7 +125,7 @@ async function completeTask(state, file) {
     const attempt = repairs + 1;
     const label = `${basename(file, ".md")}-${String(state.calls + 1).padStart(2, "0")}`;
     const escalated = repairs > 2;
-    const model = escalated ? "gpt-6-astra" : "gpt-6-luna";
+    const model = escalated ? "gpt-6-astra" : "gpt-5.6-luna";
     const effort = escalated ? "high" : "medium";
     if (escalated) { state.escalations += 1; save(state); }
     const maker = await agent(state, "maker", `Read AGENTS.md and the task. Implement and test it. Do not weaken gates.\nTask:\n${task}\nFeedback:\n${feedback}`, model, effort, label);
@@ -134,7 +134,7 @@ async function completeTask(state, file) {
     const digest = digestRepo();
     let checker = null;
     if (reports.length === checkCommands.length && reports.every((check) => check.exitCode === 0 && check.digest === digest)) {
-      const reviewed = await agent(state, "checker", checkerPrompt(task, digest, reports), "gpt-6-luna", "high", `${label}-review`, true);
+      const reviewed = await agent(state, "checker", checkerPrompt(task, digest, reports), "gpt-5.6-luna", "high", `${label}-review`, true);
       if (reviewed.exitCode !== 0) throw new Error(`Checker failed. See ${reviewed.logPath}`);
       try { checker = JSON.parse(readFileSync(reviewed.outputFile, "utf8")); } catch { throw new Error("Checker did not write valid JSON."); }
       if (digestRepo() !== digest) throw new Error("Repository changed during read-only review.");

@@ -23,7 +23,7 @@ export function nextAttempt(state) {
 }
 
 export function buildAgentArgs({ root, model, effort, readOnly }) {
-  const args = ["exec", "-C", root, "-m", model, "-c", `model_reasoning_effort="${effort}"`];
+  const args = ["exec", "--ignore-user-config", "-C", root, "-m", model, "-c", `model_reasoning_effort="${effort}"`];
   if (readOnly) args.push("-s", "read-only");
   else args.push("--approve-for-me");
   return args;
