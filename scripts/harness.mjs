@@ -187,10 +187,10 @@ async function main() {
     }
     if (!state.finalAudit) {
       const digest = digestRepo();
-      const result = await agent(state, "final-checker", `Read AGENTS.md and docs/product-specs/expenses-v1.md. Review the completed product and evidence without editing. Return JSON PASS only if all acceptance criteria are supported. Digest: ${digest}`, "gpt-6-astra", "high", "final-audit", true);
+      const result = await agent(state, "final-checker", `Read AGENTS.md, docs/product-specs/expenses-v1.md, and docs/evidence/. Review the completed product and release evidence without editing. Return PASS with findings [] only if all product acceptance criteria are supported. Put non-blocking observations in summary. Do not rerun write-producing checks in this read-only sandbox. Latest CI: ${process.env.CAPSTONE_CI_URL || "see docs/evidence/"}. Digest: ${digest}`, "gpt-6-astra", "high", "final-audit", true);
       if (result.exitCode !== 0) throw new Error(`Final audit failed. See ${result.logPath}`);
       const audit = JSON.parse(readFileSync(result.outputFile, "utf8"));
-      if (audit.status !== "PASS" || audit.digest !== digest || digestRepo() !== digest) throw new Error("Final audit did not earn PASS.");
+      if (audit.status !== "PASS" || !Array.isArray(audit.findings) || audit.findings.length !== 0 || audit.digest !== digest || digestRepo() !== digest) throw new Error("Final audit did not earn PASS.");
       state.finalAudit = audit;
     }
     state.status = "COMPLETE";
