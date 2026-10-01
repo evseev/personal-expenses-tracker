@@ -25,7 +25,7 @@ The app serves a static export from `out/`. It does not need a database server, 
 
 `npm run verify` runs lint, types, unit tests, fallow, documentation links, a production build, and desktop Playwright tests. Chromium covers CRUD, offline use, backup, errors, and an emulated mobile viewport. WebKit covers CRUD and modal keyboard behavior. The GitHub workflow uploads browser and fallow artifacts.
 
-Fallow enforces zero dead-code, cycle, dependency, or boundary findings. It reports complexity and styling issues for checker judgment. `npm run fallow` prints both its structural result and the raw audit verdict. A quality warning never becomes an invented Fallow pass.
+Fallow scans the full project for dead code, cycles, dependency, and boundary findings. Its incremental audit reports complexity and styling issues in the changeset for checker judgment. `npm run fallow` prints both the full structural result and the raw changeset audit verdict. A quality warning never becomes an invented Fallow pass.
 
 ## Agentic engineering evidence
 

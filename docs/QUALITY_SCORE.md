@@ -10,4 +10,4 @@ Observed on the current local production build (`npm run verify`):
 | Keyboard accessibility | Chromium/WebKit modal focus, Escape, and filtered-edit fallback | Pass for tested flows |
 | Harness integrity | Synthetic fault tests and real independent checker finding | In progress until final checker PASS |
 
-Fallow's structural gate passes. Its raw audit remains `fail` because it reports seven complexity findings. These are recorded for checker judgment and follow-up in `docs/exec-plans/tech-debt-tracker.md`.
+Fallow's full-project structural gate passes. The accessibility changeset audit reported seven complexity findings and a raw `fail` verdict; the later storage changeset can report `pass` because it does not include those files. The seven hotspots remain recorded for follow-up in `docs/exec-plans/tech-debt-tracker.md`.

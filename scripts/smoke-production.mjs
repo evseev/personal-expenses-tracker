@@ -22,12 +22,14 @@ try {
   await page.getByLabel("Amount in USD").fill("1.23");
   await page.getByLabel("Note").fill(note);
   await page.getByRole("button", { name: "Save expense" }).click();
-  await page.getByText(note).waitFor();
+  await page.getByRole("dialog").waitFor({ state: "hidden" });
+  const savedExpense = page.getByRole("button", { name: `Edit ${note}` });
+  await savedExpense.waitFor();
   await page.reload();
-  await page.getByText(note).waitFor({ timeout: 10_000 });
+  await savedExpense.waitFor({ timeout: 10_000 });
   await context.setOffline(true);
   await page.reload();
-  await page.getByText(note).waitFor({ timeout: 10_000 });
+  await savedExpense.waitFor({ timeout: 10_000 });
   console.log(JSON.stringify({ url, assets: "PASS", persistence: "PASS", offline: "PASS" }));
 } finally {
   await browser.close();

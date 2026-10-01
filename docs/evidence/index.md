@@ -12,3 +12,4 @@ Evidence is collected during work. Each row must link a requirement, command res
 | Vercel React skill | `docs/evidence/modal-focus.md` | Applied to modal event handling |
 | ASD-STE100 skill | `docs/evidence/ste100-example.md` | One concrete before/after agent instruction |
 | fallow | `docs/evidence/modal-focus.md` | Structural gate passed; 7 quality findings remain |
+| Production delivery | `docs/evidence/production-smoke.md` | HTTPS PWA assets, persistence, and offline journey passed |
