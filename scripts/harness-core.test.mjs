@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { budgetRemaining, earnedPass, nextAttempt } from "./harness-core.mjs";
+import { budgetRemaining, buildAgentArgs, earnedPass, nextAttempt } from "./harness-core.mjs";
 
 describe("synthetic harness fault cases", () => {
   const startedAt = "2026-10-01T10:00:00.000Z";
@@ -27,5 +27,14 @@ describe("synthetic harness fault cases", () => {
     expect(nextAttempt({ repairs: 0, escalations: 0 })).toBe("repair");
     expect(nextAttempt({ repairs: 2, escalations: 0 })).toBe("escalate");
     expect(nextAttempt({ repairs: 2, escalations: 2 })).toBe("stop");
+  });
+
+  it("never combines CLI sandbox mode with automatic approval review", () => {
+    const maker = buildAgentArgs({ root: "/tmp/project", model: "gpt-6-luna", effort: "medium", readOnly: false });
+    expect(maker).toContain("--approve-for-me");
+    expect(maker).not.toContain("-s");
+    const checker = buildAgentArgs({ root: "/tmp/project", model: "gpt-6-luna", effort: "high", readOnly: true });
+    expect(checker).toContain("read-only");
+    expect(checker).not.toContain("--approve-for-me");
   });
 });

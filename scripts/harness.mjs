@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { spawn, execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
-import { budgetRemaining, earnedPass, nextAttempt } from "./harness-core.mjs";
+import { budgetRemaining, buildAgentArgs, earnedPass, nextAttempt } from "./harness-core.mjs";
 
 const root = process.cwd();
 const store = resolve(root, ".harness");
@@ -81,8 +81,7 @@ async function agent(state, role, prompt, model, effort, label, readOnly = false
   state.calls += 1;
   record(state, { kind: "AGENT_START", role, model, label, call: state.calls });
   const outputFile = join(runDir, `${label}-answer.json`);
-  const argv = [process.env.CAPSTONE_CODEX_BIN || "codex", "exec", "-C", root, "-m", model, "-c", `model_reasoning_effort="${effort}"`, "-s", readOnly ? "read-only" : "workspace-write"];
-  if (!readOnly) argv.push("--approve-for-me");
+  const argv = [process.env.CAPSTONE_CODEX_BIN || "codex", ...buildAgentArgs({ root, model, effort, readOnly })];
   if (readOnly) argv.push("--output-schema", schema);
   argv.push("--json", "-o", outputFile, prompt);
   const result = await run(argv, `${label}.jsonl`, 30 * 60_000);
