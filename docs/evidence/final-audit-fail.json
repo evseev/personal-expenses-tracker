@@ -1,0 +1,11 @@
+{
+  "status": "FAIL",
+  "digest": "7566eb46009565e9fbdc3edf3bf4cda23ad39312593edcdad311dbfa83ffc6b3",
+  "findings": [
+    "FR-3 / AC-6 — src/components/Dashboard.tsx:168: Failed operations never clear the previous success message. After a successful save followed by a failed write, role=status still contains success text alongside the error. Clear stale success state and add a failed-write regression following a successful operation; the existing storage-error test only exercises initial loading.",
+    "NFR-1 / AC-7 — src/components/Dashboard.module.css:68: The import file input has opacity:0, which also hides its keyboard focus outline. Its visible label has no focus styling. Add a visible focus indicator to the label and verify keyboard navigation to Import JSON backup.",
+    "FR-4 — src/components/Dashboard.tsx:269: Once ready is true, the header always displays 'Ready offline' regardless of connectivity. Display network connectivity separately from service-worker readiness and cover disconnect/reconnect behavior.",
+    "FR-6 — src/components/Dashboard.tsx:219: Demo records use the selected month. Selecting another month before loading samples creates records outside the required current local month. Generate samples for the current local month and add regression coverage."
+  ],
+  "summary": "Read-only review completed; no files edited or write-producing checks rerun. Supplied verification passes, recorded production evidence, and the genuine checker-failure → repair → recheck trace support the main product flows, but the defects above prevent acceptance. CI and deployment URLs could not be independently retrieved. Seven documented complexity hotspots remain non-blocking debt. The localhost EPERM failure is environmental, not a product defect."
+}

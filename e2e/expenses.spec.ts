@@ -101,7 +101,10 @@ test("stays usable offline after the shell is ready", async ({ page, context, br
   test.skip(browserName !== "chromium", "Offline acceptance uses desktop Chromium.");
   await page.goto("/");
   await expect(page.getByText("Ready offline")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("Online", { exact: true })).toBeVisible();
   await context.setOffline(true);
+  await expect(page.getByText("Offline now", { exact: true })).toBeVisible();
+  await expect(page.getByText("Ready offline")).toBeVisible();
   await page.reload();
   await page.getByRole("button", { name: "Add expense" }).click();
   await page.getByLabel("Amount in USD").fill("3,40");
@@ -118,6 +121,8 @@ test("stays usable offline after the shell is ready", async ({ page, context, br
   })).toBe(1);
   await page.reload();
   await expect(page.getByText("Offline coffee")).toBeVisible();
+  await context.setOffline(false);
+  await expect(page.getByText("Online", { exact: true })).toBeVisible();
 });
 
 test("rejects invalid backup without erasing expenses", async ({ page, browserName }) => {
@@ -164,6 +169,49 @@ test("shows a storage failure instead of a success message", async ({ page, brow
   await page.goto("/");
   await expect(page.locator("main [role=alert]")).toContainText("Could not load expenses");
   await expect(page.getByText("Expense saved.")).toHaveCount(0);
+});
+
+test("clears a prior success when a later write fails", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium", "Failure acceptance uses desktop Chromium.");
+  await page.goto("/");
+  await page.getByRole("button", { name: "Add expense" }).click();
+  await page.getByLabel("Amount in USD").fill("4.25");
+  await page.getByLabel("Note").fill("First save");
+  await page.getByRole("button", { name: "Save expense" }).click();
+  await expect(page.getByRole("status")).toHaveText("Expense saved.");
+  await page.evaluate(() => {
+    IDBObjectStore.prototype.put = () => { throw new Error("Simulated write failure"); };
+  });
+  await page.getByRole("button", { name: "Edit First save" }).click();
+  await page.getByLabel("Amount in USD").fill("5.25");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.locator("main [role=alert]")).toContainText("Could not save the expense");
+  await expect(page.getByRole("status")).toHaveCount(0);
+  await expect(page.getByTestId("monthly-total")).toHaveText("$4.25");
+});
+
+test("shows keyboard focus on Import JSON backup", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium", "Keyboard focus acceptance uses desktop Chromium.");
+  await page.goto("/");
+  await page.getByRole("button", { name: "Download JSON" }).focus();
+  await page.keyboard.press("Tab");
+  const input = page.getByLabel("Import JSON backup");
+  await expect(input).toBeFocused();
+  await expect(input.locator("..")).toHaveCSS("outline-style", "solid");
+});
+
+test("loads demo records into the current local month", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium", "Demo acceptance uses desktop Chromium.");
+  await page.goto("/");
+  const monthInput = page.getByLabel("Month", { exact: true });
+  const currentMonth = await monthInput.inputValue();
+  const [year, month] = currentMonth.split("-").map(Number);
+  const previousMonth = month === 1 ? `${year - 1}-12` : `${year}-${String(month - 1).padStart(2, "0")}`;
+  await monthInput.fill(previousMonth);
+  await page.getByRole("button", { name: "Or explore with sample expenses" }).click();
+  await expect(monthInput).toHaveValue(currentMonth);
+  await expect(page.getByTestId("monthly-total")).toHaveText("$75.64");
+  await expect(page.getByText("Groceries")).toBeVisible();
 });
 
 test("dark mobile viewport has no horizontal overflow", async ({ page, browserName }) => {

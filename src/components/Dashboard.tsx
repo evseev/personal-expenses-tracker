@@ -168,6 +168,7 @@ export default function Dashboard() {
   async function save(input: Pick<Expense, "cents" | "date" | "category" | "note">) {
     setBusy(true);
     setError("");
+    setMessage("");
     try {
       const existing = editing && editing !== "new" ? editing : null;
       await repository.put({
@@ -198,12 +199,15 @@ export default function Dashboard() {
 
   function openForm(value: Expense | "new", opener: HTMLButtonElement) {
     openerRef.current = opener;
+    setError("");
+    setMessage("");
     setEditing(value);
   }
 
   async function remove(expense: Expense) {
     if (!window.confirm(`Delete ${expense.note || expense.category} for ${formatUsd(expense.cents)}?`)) return;
     setError("");
+    setMessage("");
     try {
       await repository.remove(expense.id);
       await refresh();
@@ -216,16 +220,18 @@ export default function Dashboard() {
   async function loadDemo() {
     if (expenses.length > 0) return;
     setError("");
-    const selectedMonth = month || currentLocalDate().slice(0, 7);
+    setMessage("");
+    const sampleMonth = currentLocalDate().slice(0, 7);
     const now = new Date().toISOString();
     const samples: Expense[] = [
-      { id: "demo-food", cents: 1840, date: `${selectedMonth}-01`, category: "Food", note: "Groceries", createdAt: now },
-      { id: "demo-home", cents: 4999, date: `${selectedMonth}-02`, category: "Home", note: "Home supplies", createdAt: now },
-      { id: "demo-transport", cents: 725, date: `${selectedMonth}-03`, category: "Transport", note: "Bus tickets", createdAt: now },
+      { id: "demo-food", cents: 1840, date: `${sampleMonth}-01`, category: "Food", note: "Groceries", createdAt: now },
+      { id: "demo-home", cents: 4999, date: `${sampleMonth}-02`, category: "Home", note: "Home supplies", createdAt: now },
+      { id: "demo-transport", cents: 725, date: `${sampleMonth}-03`, category: "Transport", note: "Bus tickets", createdAt: now },
     ];
     try {
       await repository.replaceAll(samples);
       await refresh();
+      setMonth(sampleMonth);
       setMessage("Sample expenses added.");
     } catch {
       setError("Could not add sample expenses.");
@@ -233,6 +239,8 @@ export default function Dashboard() {
   }
 
   async function exportData() {
+    setError("");
+    setMessage("");
     try {
       const items = await repository.list();
       const url = URL.createObjectURL(new Blob([serializeBackup(items)], { type: "application/json" }));
@@ -250,6 +258,7 @@ export default function Dashboard() {
   async function importData(file: File | undefined) {
     if (!file) return;
     setError("");
+    setMessage("");
     try {
       if (file.size > 5_000_000) throw new Error("Backup file is too large.");
       const incoming = parseBackup(await file.text());
@@ -266,7 +275,7 @@ export default function Dashboard() {
     <div className={styles.site}>
       <header className={styles.header}>
         <div className={styles.brand}><span className={styles.brandMark} aria-hidden="true">↗</span><span>current<span className={styles.brandDot}>.</span></span></div>
-        <div className={styles.headerRight}><span className={styles.privatePill}>PRIVATE BY DEFAULT</span><span className={styles.status}><span className={`${styles.statusDot} ${ready ? styles.ready : ""}`} />{ready ? "Ready offline" : connected ? "Offline setup pending" : "Offline"}</span></div>
+        <div className={styles.headerRight}><span className={styles.privatePill}>PRIVATE BY DEFAULT</span><span className={styles.status}><span className={`${styles.statusDot} ${ready ? styles.ready : ""}`} />{ready ? "Ready offline" : "Offline setup pending"}</span><span className={styles.status} aria-live="polite"><span className={`${styles.statusDot} ${connected ? styles.ready : styles.disconnected}`} />{connected ? "Online" : "Offline now"}</span></div>
       </header>
 
       <main className={styles.main}>
