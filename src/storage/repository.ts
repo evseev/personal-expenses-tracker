@@ -5,4 +5,5 @@ export interface ExpenseRepository {
   put(expense: Expense): Promise<void>;
   remove(id: string): Promise<void>;
   replaceAll(expenses: Expense[]): Promise<void>;
+  insertIfEmpty(expenses: Expense[]): Promise<boolean>;
 }

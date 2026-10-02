@@ -14,6 +14,8 @@ IndexedDB adapter (idb)
 
 The domain owns money parsing, local calendar dates, category totals, ordering, and backup validation. React components do not read IndexedDB directly. The IndexedDB adapter owns transactions. A backup restore validates the entire payload before one write transaction replaces the existing records.
 
+Demo samples use a different repository operation: one readwrite transaction checks that the store is empty and inserts the samples. It never clears existing records. The UI offers this action only after a successful empty initial read.
+
 The build statically exports the page. Workbox generates a precaching service worker from the exported files. The app registers that worker only in a production browser. Offline readiness means the worker has installed and controls the page; `navigator.onLine` alone is not proof. The application does not fetch remote fonts, images, or APIs.
 
 The service worker caches application files only. Expense data stays in IndexedDB and is never sent to deployment infrastructure. Clearing site data deletes expenses; JSON export provides a portable backup.

@@ -43,4 +43,12 @@ describe("IndexedDB expense repository", () => {
     await importBackup(repository, JSON.stringify({ version: 1, expenses: [replacement] }));
     expect(await repository.list()).toEqual([replacement]);
   });
+
+  it("adds demo records only when the stored data is empty", async () => {
+    const repository = new IndexedDbExpenseRepository(name);
+    expect(await repository.insertIfEmpty([sample])).toBe(true);
+    const replacement = { ...sample, id: "demo", note: "Demo" };
+    expect(await repository.insertIfEmpty([replacement])).toBe(false);
+    expect(await repository.list()).toEqual([sample]);
+  });
 });

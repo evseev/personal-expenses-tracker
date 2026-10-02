@@ -140,6 +140,7 @@ function ExpenseForm({ expense, busy, onCancel, onSave }: ExpenseFormProps) {
 export default function Dashboard() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [loadSucceeded, setLoadSucceeded] = useState(false);
   const [month, setMonth] = useState("");
   const [filter, setFilter] = useState<Category | "All">("All");
   const [editing, setEditing] = useState<Expense | null | "new">(null);
@@ -153,7 +154,7 @@ export default function Dashboard() {
   useEffect(() => {
     queueMicrotask(() => setMonth(currentLocalDate().slice(0, 7)));
     let active = true;
-    void repository.list().then((items) => { if (active) { setExpenses(items); setLoaded(true); } }).catch(() => { if (active) { setError("Could not load expenses from this browser."); setLoaded(true); } });
+    void repository.list().then((items) => { if (active) { setExpenses(items); setLoadSucceeded(true); setLoaded(true); } }).catch(() => { if (active) { setError("Could not load expenses from this browser."); setLoaded(true); } });
     return () => { active = false; };
   }, []);
 
@@ -163,6 +164,7 @@ export default function Dashboard() {
 
   async function refresh() {
     setExpenses(await repository.list());
+    setLoadSucceeded(true);
   }
 
   async function save(input: Pick<Expense, "cents" | "date" | "category" | "note">) {
@@ -218,7 +220,7 @@ export default function Dashboard() {
   }
 
   async function loadDemo() {
-    if (expenses.length > 0) return;
+    if (!loadSucceeded || expenses.length > 0) return;
     setError("");
     setMessage("");
     const sampleMonth = currentLocalDate().slice(0, 7);
@@ -229,7 +231,11 @@ export default function Dashboard() {
       { id: "demo-transport", cents: 725, date: `${sampleMonth}-03`, category: "Transport", note: "Bus tickets", createdAt: now },
     ];
     try {
-      await repository.replaceAll(samples);
+      if (!await repository.insertIfEmpty(samples)) {
+        await refresh();
+        setError("Sample expenses require an empty browser store.");
+        return;
+      }
       await refresh();
       setMonth(sampleMonth);
       setMessage("Sample expenses added.");
@@ -302,7 +308,7 @@ export default function Dashboard() {
 
         <section className={styles.history} aria-label="Expense history">
           <div className={styles.sectionHead}><div><p className={styles.eyebrow}>THE DETAILS</p><h2>Activity</h2></div><label className={styles.filterLabel}>Filter category<select aria-label="Filter category" value={filter} onChange={(event) => setFilter(event.target.value as Category | "All")}><option>All</option>{CATEGORIES.map((category) => <option key={category}>{category}</option>)}</select></label></div>
-          {!loaded ? <div className={styles.listEmpty}>Loading expenses…</div> : visibleExpenses.length ? <ul className={styles.expenseList}>{visibleExpenses.map((expense) => <li className={styles.expenseRow} key={expense.id}><div className={styles.expenseIcon} style={{ color: categoryColors[expense.category] }} aria-hidden="true">{expense.category[0]}</div><div className={styles.expenseText}><strong>{expense.note || expense.category}</strong><span>{expense.category} <span aria-hidden="true">·</span> {new Date(`${expense.date}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></div><strong className={styles.expenseAmount}>−{formatUsd(expense.cents)}</strong><div className={styles.rowActions}><button aria-label={`Edit ${expense.note || expense.category}`} title="Edit" onClick={(event) => openForm(expense, event.currentTarget)}>Edit</button><button aria-label={`Delete ${expense.note || expense.category}`} title="Delete" onClick={() => void remove(expense)}>Delete</button></div></li>)}</ul> : <div className={styles.listEmpty}><div className={styles.emptyGlyph} aria-hidden="true">＋</div><h3>Nothing here yet</h3><p>Add your first expense to start seeing the full picture.</p>{expenses.length === 0 ? <button className={styles.textButton} onClick={() => void loadDemo()}>Or explore with sample expenses →</button> : null}</div>}
+          {!loaded ? <div className={styles.listEmpty}>Loading expenses…</div> : visibleExpenses.length ? <ul className={styles.expenseList}>{visibleExpenses.map((expense) => <li className={styles.expenseRow} key={expense.id}><div className={styles.expenseIcon} style={{ color: categoryColors[expense.category] }} aria-hidden="true">{expense.category[0]}</div><div className={styles.expenseText}><strong>{expense.note || expense.category}</strong><span>{expense.category} <span aria-hidden="true">·</span> {new Date(`${expense.date}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></div><strong className={styles.expenseAmount}>−{formatUsd(expense.cents)}</strong><div className={styles.rowActions}><button aria-label={`Edit ${expense.note || expense.category}`} title="Edit" onClick={(event) => openForm(expense, event.currentTarget)}>Edit</button><button aria-label={`Delete ${expense.note || expense.category}`} title="Delete" onClick={() => void remove(expense)}>Delete</button></div></li>)}</ul> : <div className={styles.listEmpty}><div className={styles.emptyGlyph} aria-hidden="true">＋</div><h3>Nothing here yet</h3><p>Add your first expense to start seeing the full picture.</p>{loadSucceeded && expenses.length === 0 ? <button className={styles.textButton} onClick={() => void loadDemo()}>Or explore with sample expenses →</button> : null}</div>}
         </section>
 
         <section className={styles.dataSection} aria-label="Data and backup"><div><p className={styles.eyebrow}>YOUR DATA</p><h2>Data &amp; backup</h2><p>Your expenses stay in this browser. Clearing browser data deletes them. Download a backup to keep a copy.</p></div><div className={styles.dataActions}><button className={styles.secondaryButton} onClick={() => void exportData()}>Download JSON</button><label className={styles.uploadButton}>Import JSON backup<input aria-label="Import JSON backup" type="file" accept=".json,application/json" onChange={(event) => { void importData(event.target.files?.[0]); event.target.value = ""; }} /></label></div></section>

@@ -214,6 +214,81 @@ test("loads demo records into the current local month", async ({ page, browserNa
   await expect(page.getByText("Groceries")).toBeVisible();
 });
 
+test("does not offer demo data after an initial read failure with existing records", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium", "Storage failure acceptance uses desktop Chromium.");
+  await page.goto("/");
+  await page.getByRole("button", { name: "Add expense" }).click();
+  await page.getByLabel("Amount in USD").fill("9.25");
+  await page.getByLabel("Note").fill("Keep after failure");
+  await page.getByRole("button", { name: "Save expense" }).click();
+  await expect(page.getByRole("dialog")).toBeHidden();
+  await page.addInitScript(() => {
+    const originalGetAll = IDBObjectStore.prototype.getAll;
+    let failFirstRead = true;
+    IDBObjectStore.prototype.getAll = function (...args) {
+      if (failFirstRead) {
+        failFirstRead = false;
+        throw new Error("Simulated initial read failure");
+      }
+      return originalGetAll.apply(this, args);
+    };
+  });
+  await page.reload();
+  await expect(page.locator("main [role=alert]")).toContainText("Could not load expenses");
+  await expect(page.getByRole("button", { name: "Or explore with sample expenses" })).toHaveCount(0);
+  const notes = await page.evaluate(async () => {
+    const request = indexedDB.open("personal-expenses-v1");
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    try {
+      const transaction = database.transaction("expenses", "readonly");
+      return await new Promise<string[]>((resolve, reject) => {
+        const result = transaction.objectStore("expenses").getAll();
+        result.onsuccess = () => resolve((result.result as Array<{ note: string }>).map((expense) => expense.note));
+        result.onerror = () => reject(result.error);
+      });
+    } finally {
+      database.close();
+    }
+  });
+  expect(notes).toEqual(["Keep after failure"]);
+});
+
+test("does not replace a record added after the empty view loaded", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium", "Demo safety acceptance uses desktop Chromium.");
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Or explore with sample expenses" })).toBeVisible();
+  await page.evaluate(async () => {
+    const request = indexedDB.open("personal-expenses-v1");
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    try {
+      const transaction = database.transaction("expenses", "readwrite");
+      const today = new Date();
+      const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      transaction.objectStore("expenses").put({
+        id: "other-tab", cents: 1200, date,
+        category: "Food", note: "Other tab expense", createdAt: new Date().toISOString(),
+      });
+      await new Promise<void>((resolve, reject) => {
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      });
+    } finally {
+      database.close();
+    }
+  });
+  await page.getByRole("button", { name: "Or explore with sample expenses" }).click();
+  await expect(page.locator("main [role=alert]")).toContainText("Sample expenses require an empty browser store");
+  await page.reload();
+  await expect(page.getByText("Other tab expense")).toBeVisible();
+  await expect(page.getByText("Groceries")).toHaveCount(0);
+});
+
 test("dark mobile viewport has no horizontal overflow", async ({ page, browserName }) => {
   test.skip(browserName !== "chromium", "Mobile viewport acceptance uses desktop Chromium.");
   await page.setViewportSize({ width: 390, height: 844 });

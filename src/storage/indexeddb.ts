@@ -58,4 +58,20 @@ export class IndexedDbExpenseRepository implements ExpenseRepository {
       database.close();
     }
   }
+
+  async insertIfEmpty(expenses: Expense[]): Promise<boolean> {
+    const database = await this.open();
+    try {
+      const transaction = database.transaction(STORE, "readwrite");
+      if (await transaction.store.count() !== 0) {
+        await transaction.done;
+        return false;
+      }
+      for (const expense of expenses) await transaction.store.add(expense);
+      await transaction.done;
+      return true;
+    } finally {
+      database.close();
+    }
+  }
 }
